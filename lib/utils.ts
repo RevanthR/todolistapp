@@ -7,8 +7,11 @@ export function getWeekStart(date = new Date()): string {
   const day = d.getDay(); // 0 = Sunday
   const diff = day === 0 ? -6 : 1 - day;
   d.setDate(d.getDate() + diff);
-  d.setHours(0, 0, 0, 0);
-  return d.toISOString().split('T')[0];
+  // Use local date parts to avoid UTC offset shifting the date (e.g. IST = UTC+5:30)
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 export function formatWeekRange(weekStart: string): string {
