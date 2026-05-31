@@ -37,9 +37,20 @@ export async function proxy(req: NextRequest) {
     }
   }
 
+  // Admin route protection
+  if (pathname.startsWith('/admin/dashboard')) {
+    const adminToken = req.cookies.get('admin_token')?.value;
+    if (!adminToken) return NextResponse.redirect(new URL('/admin/login', req.url));
+    try {
+      await jwtVerify(adminToken, secret);
+    } catch {
+      return NextResponse.redirect(new URL('/admin/login', req.url));
+    }
+  }
+
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/group/:path*', '/profile/:path*', '/login'],
+  matcher: ['/dashboard/:path*', '/group/:path*', '/profile/:path*', '/login', '/admin/:path*'],
 };
