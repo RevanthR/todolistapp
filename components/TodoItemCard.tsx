@@ -13,18 +13,6 @@ export interface TodoItemData {
   note: string | null;
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  pending: 'Pending',
-  in_progress: 'In Progress',
-  done: 'Done',
-};
-
-const STATUS_STYLES: Record<string, string> = {
-  pending: 'bg-gray-100 text-gray-600',
-  in_progress: 'bg-amber-100 text-amber-700',
-  done: 'bg-green-100 text-green-700',
-};
-
 interface Props {
   item: TodoItemData;
   onStatusCycle: (id: string) => void;
@@ -40,7 +28,7 @@ export default function TodoItemCard({ item, onStatusCycle, onDelete, onUpdate }
   const [saving, setSaving] = useState(false);
 
   async function saveEdit() {
-    if (!editTitle.trim()) return;
+    if (!editTitle.trim() || !editDeadline) return;
     setSaving(true);
     await onUpdate(item.id, {
       title: editTitle.trim(),
@@ -51,22 +39,32 @@ export default function TodoItemCard({ item, onStatusCycle, onDelete, onUpdate }
     setEditing(false);
   }
 
+  const actionButton = {
+    pending: { label: 'Mark In Progress', style: 'bg-amber-50 text-amber-700 border border-amber-200' },
+    in_progress: { label: 'Mark as Done', style: 'bg-green-50 text-green-700 border border-green-200' },
+    done: { label: 'Completed ✓', style: 'bg-green-500 text-white' },
+  }[item.status] ?? { label: 'Update', style: 'bg-gray-100 text-gray-600' };
+
   if (editing) {
     return (
       <div className="bg-white rounded-2xl p-4 shadow-sm border border-indigo-100">
         <input
-          className="w-full text-sm font-medium border-b border-gray-200 pb-1 mb-3 focus:outline-none focus:border-indigo-400"
+          className="w-full text-sm font-medium border-b border-gray-200 pb-2 mb-3 focus:outline-none focus:border-indigo-400"
           value={editTitle}
           onChange={(e) => setEditTitle(e.target.value)}
           placeholder="What do you want to get done?"
           autoFocus
         />
-        <input
-          type="date"
-          className="w-full text-sm text-gray-500 mb-3 focus:outline-none"
-          value={editDeadline}
-          onChange={(e) => setEditDeadline(e.target.value)}
-        />
+        <div className="mb-3">
+          <label className="text-xs text-gray-700 font-medium block mb-1">Deadline <span className="text-red-400">*</span></label>
+          <input
+            type="date"
+            className="text-sm text-gray-600 focus:outline-none border-b border-gray-200 pb-1 w-full"
+            value={editDeadline}
+            onChange={(e) => setEditDeadline(e.target.value)}
+            required
+          />
+        </div>
         <textarea
           className="w-full text-sm text-gray-500 resize-none focus:outline-none"
           rows={2}
@@ -77,14 +75,14 @@ export default function TodoItemCard({ item, onStatusCycle, onDelete, onUpdate }
         <div className="flex gap-2 mt-3">
           <button
             onClick={saveEdit}
-            disabled={saving}
-            className="flex-1 bg-indigo-600 text-white text-sm font-medium py-2 rounded-xl disabled:opacity-50"
+            disabled={saving || !editTitle.trim() || !editDeadline}
+            className="flex-1 bg-indigo-600 text-white text-sm font-semibold py-2.5 rounded-xl disabled:opacity-50"
           >
             {saving ? 'Saving…' : 'Save'}
           </button>
           <button
             onClick={() => setEditing(false)}
-            className="flex-1 bg-gray-100 text-gray-600 text-sm font-medium py-2 rounded-xl"
+            className="flex-1 bg-gray-100 text-gray-600 text-sm font-medium py-2.5 rounded-xl"
           >
             Cancel
           </button>
@@ -94,32 +92,11 @@ export default function TodoItemCard({ item, onStatusCycle, onDelete, onUpdate }
   }
 
   return (
-    <div className={`bg-white rounded-2xl p-4 shadow-sm border ${item.status === 'done' ? 'border-green-100 opacity-80' : 'border-gray-100'}`}>
-      <div className="flex items-start gap-3">
-        {/* Status toggle circle */}
-        <button
-          onClick={() => onStatusCycle(item.id)}
-          className={`mt-0.5 flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
-            item.status === 'done'
-              ? 'bg-green-500 border-green-500'
-              : item.status === 'in_progress'
-              ? 'bg-amber-400 border-amber-400'
-              : 'border-gray-300 bg-white'
-          }`}
-          aria-label="Cycle status"
-        >
-          {item.status === 'done' && (
-            <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-          )}
-          {item.status === 'in_progress' && (
-            <div className="w-2 h-2 bg-white rounded-full" />
-          )}
-        </button>
-
+    <div className={`bg-white rounded-2xl p-4 shadow-sm border ${item.status === 'done' ? 'border-green-100' : 'border-gray-100'}`}>
+      {/* Top row: title + edit/delete */}
+      <div className="flex items-start gap-2 mb-3">
         <div className="flex-1 min-w-0">
-          <p className={`text-sm font-medium leading-snug ${item.status === 'done' ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+          <p className={`text-sm font-semibold leading-snug ${item.status === 'done' ? 'line-through text-gray-400' : 'text-gray-900'}`}>
             {item.title}
           </p>
           <div className="flex flex-wrap items-center gap-2 mt-1">
@@ -129,15 +106,9 @@ export default function TodoItemCard({ item, onStatusCycle, onDelete, onUpdate }
                   <rect x="3" y="4" width="18" height="18" rx="2" />
                   <path strokeLinecap="round" d="M16 2v4M8 2v4M3 10h18" />
                 </svg>
-                {formatDeadline(item.deadline)}
+                Due {formatDeadline(item.deadline)}
               </span>
             )}
-            <button
-              onClick={() => onStatusCycle(item.id)}
-              className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_STYLES[item.status] ?? 'bg-gray-100 text-gray-600'}`}
-            >
-              {STATUS_LABELS[item.status] ?? item.status}
-            </button>
           </div>
           {item.note && (
             <p className="text-xs text-gray-400 mt-1 leading-snug">{item.note}</p>
@@ -152,7 +123,7 @@ export default function TodoItemCard({ item, onStatusCycle, onDelete, onUpdate }
               setEditDeadline(item.deadline ?? '');
               setEditing(true);
             }}
-            className="p-1.5 text-gray-400 hover:text-indigo-500 transition-colors"
+            className="p-1.5 text-gray-300 hover:text-indigo-500 transition-colors"
             aria-label="Edit"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -161,7 +132,7 @@ export default function TodoItemCard({ item, onStatusCycle, onDelete, onUpdate }
           </button>
           <button
             onClick={() => onDelete(item.id)}
-            className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
+            className="p-1.5 text-gray-300 hover:text-red-400 transition-colors"
             aria-label="Delete"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -170,6 +141,24 @@ export default function TodoItemCard({ item, onStatusCycle, onDelete, onUpdate }
             </svg>
           </button>
         </div>
+      </div>
+
+      {/* Action button */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => onStatusCycle(item.id)}
+          className={`flex-1 text-sm font-semibold py-2 rounded-xl transition-all active:scale-95 ${actionButton.style}`}
+        >
+          {actionButton.label}
+        </button>
+        {item.status === 'done' && (
+          <button
+            onClick={() => onStatusCycle(item.id)}
+            className="text-xs text-gray-400 underline px-2"
+          >
+            Undo
+          </button>
+        )}
       </div>
     </div>
   );

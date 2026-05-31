@@ -44,7 +44,7 @@ export default function Dashboard() {
   }
 
   async function addItem() {
-    if (!newTitle.trim()) return;
+    if (!newTitle.trim() || !newDeadline) return;
     setAdding(true);
     const res = await fetch('/api/todos/items', {
       method: 'POST',
@@ -188,7 +188,7 @@ export default function Dashboard() {
               />
               <div className="flex gap-3 mb-3">
                 <div className="flex-1">
-                  <label className="text-xs text-gray-400 block mb-1">Deadline (optional)</label>
+                  <label className="text-xs text-gray-700 font-medium block mb-1">Deadline <span className="text-red-400">*</span></label>
                   <input
                     type="date"
                     className="w-full text-sm text-gray-600 focus:outline-none"
@@ -207,7 +207,7 @@ export default function Dashboard() {
               <div className="flex gap-2 mt-3">
                 <button
                   onClick={addItem}
-                  disabled={adding || !newTitle.trim()}
+                  disabled={adding || !newTitle.trim() || !newDeadline}
                   className="flex-1 bg-indigo-600 text-white text-sm font-semibold py-2.5 rounded-xl disabled:opacity-40"
                 >
                   {adding ? 'Adding…' : 'Add goal'}

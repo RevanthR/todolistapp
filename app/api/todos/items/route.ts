@@ -15,6 +15,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Title is required' }, { status: 400 });
   }
 
+  if (!deadline) {
+    return NextResponse.json({ error: 'Deadline is required' }, { status: 400 });
+  }
+
   const weekStart = getWeekStart();
 
   const [todo] = await db

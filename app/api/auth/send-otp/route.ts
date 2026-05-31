@@ -41,9 +41,17 @@ export async function POST(req: NextRequest) {
       used: false,
     });
 
-    await sendOTP(phone, otp);
+    let devOtp: string | undefined;
+    try {
+      await sendOTP(phone, otp);
+    } catch {
+      // SMS failed — expose OTP in dev mode so you can still test
+      if (process.env.NODE_ENV !== 'production') {
+        devOtp = otp;
+      }
+    }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, ...(devOtp ? { devOtp } : {}) });
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: 'Failed to send OTP' }, { status: 500 });

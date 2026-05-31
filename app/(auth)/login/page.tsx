@@ -12,6 +12,7 @@ export default function LoginPage() {
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [devOtp, setDevOtp] = useState('');
 
   async function handleSendOTP() {
     setError('');
@@ -28,6 +29,7 @@ export default function LoginPage() {
     const data = await res.json();
     setLoading(false);
     if (res.ok) {
+      if (data.devOtp) setDevOtp(data.devOtp);
       setStep('otp');
     } else {
       setError(data.error ?? 'Failed to send OTP');
@@ -138,6 +140,12 @@ export default function LoginPage() {
                 Change number
               </button>
             </div>
+            {devOtp && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-2 text-sm text-amber-800">
+                <span className="font-medium">Dev mode OTP: </span>
+                <span className="font-mono font-bold tracking-widest">{devOtp}</span>
+              </div>
+            )}
             <OtpInput value={otp} onChange={setOtp} />
             {error && <p className="text-red-500 text-sm">{error}</p>}
             <button
