@@ -46,18 +46,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ code
         .where(and(eq(weeklyTodos.userId, m.userId), eq(weeklyTodos.weekStart, weekStart)))
         .limit(1);
 
-      let totalItems = 0;
-      let doneItems = 0;
+      let items: typeof todoItems.$inferSelect[] = [];
 
       if (todo) {
-        const items = await db
+        items = await db
           .select()
           .from(todoItems)
-          .where(eq(todoItems.weeklyTodoId, todo.id));
-        totalItems = items.length;
-        doneItems = items.filter((i) => i.status === 'done').length;
+          .where(eq(todoItems.weeklyTodoId, todo.id))
+          .orderBy(todoItems.createdAt);
       }
 
+      const totalItems = items.length;
+      const doneItems = items.filter((i) => i.status === 'done').length;
       const progress = totalItems === 0 ? 0 : Math.round((doneItems / totalItems) * 100);
 
       return {
@@ -69,6 +69,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ code
         doneItems,
         progress,
         hasStartedWeek: !!todo,
+        items: items.map((i) => ({
+          id: i.id,
+          title: i.title,
+          deadline: i.deadline,
+          status: i.status,
+          note: i.note,
+        })),
       };
     })
   );
