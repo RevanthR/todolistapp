@@ -1,26 +1,26 @@
 // OTP via 2Factor.in (SMS, no DLT needed)
 // Reminders via Fast2SMS WhatsApp Manager (Utility templates)
 
-async function sendWhatsApp(templateId: string, numbers: string, variables: string[]): Promise<void> {
+async function sendWhatsApp(messageId: string, numbers: string, variables: string[]): Promise<void> {
   const apiKey = process.env.FAST2SMS_WA_API_KEY ?? process.env.FAST2SMS_API_KEY;
   if (!apiKey) {
-    console.log(`[DEV] WhatsApp template ${templateId} to ${numbers}:`, variables);
+    console.log(`[DEV] WhatsApp message ${messageId} to ${numbers}:`, variables);
     return;
   }
 
-  const body = new URLSearchParams({
-    template_id: templateId,
+  const params = new URLSearchParams({
+    authorization: apiKey,
+    message_id: messageId,
+    phone_number_id: process.env.FAST2SMS_WA_PHONE_NUMBER_ID ?? '',
     numbers,
-    variables: variables.join(','),
   });
 
-  const res = await fetch('https://www.fast2sms.com/dev/whatsapp', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'authorization': apiKey,
-    },
-    body: body.toString(),
+  if (variables.length > 0) {
+    params.set('variables_values', variables.join('|'));
+  }
+
+  const res = await fetch(`https://www.fast2sms.com/dev/whatsapp?${params.toString()}`, {
+    method: 'GET',
   });
 
   const data = await res.json();
@@ -46,18 +46,16 @@ export async function sendOTP(phone: string, otp: string): Promise<void> {
   }
 }
 
-// Weekly reminder — growtogether_weekly_nudge
-// "Hello {{1}}, your weekly task list on Grow Together has not been created yet..."
+// Weekly reminder — growtogether_weekly_nudge (Message ID: 22084)
 export async function sendWeeklyReminder(phone: string, name: string): Promise<void> {
-  const templateId = process.env.FAST2SMS_WA_WEEKLY_TEMPLATE;
-  if (!templateId) return;
-  await sendWhatsApp(templateId, phone, [name]);
+  const messageId = process.env.FAST2SMS_WA_WEEKLY_TEMPLATE;
+  if (!messageId) return;
+  await sendWhatsApp(messageId, phone, [name]);
 }
 
-// Daily reminder — growtogether_daily_nudge
-// "Hello {{1}}, you have {{2}} pending task(s) on Grow Together..."
+// Daily reminder — growtogether_daily_nudge (Message ID: 22085)
 export async function sendDailyReminder(phone: string, name: string, pendingCount: number): Promise<void> {
-  const templateId = process.env.FAST2SMS_WA_DAILY_TEMPLATE;
-  if (!templateId) return;
-  await sendWhatsApp(templateId, phone, [name, String(pendingCount)]);
+  const messageId = process.env.FAST2SMS_WA_DAILY_TEMPLATE;
+  if (!messageId) return;
+  await sendWhatsApp(messageId, phone, [name, String(pendingCount)]);
 }
