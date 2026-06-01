@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { formatDeadline } from '@/lib/utils';
+import DeadlinePicker from './DeadlinePicker';
 
 export type Status = 'pending' | 'in_progress' | 'done';
 
@@ -18,9 +19,10 @@ interface Props {
   onStatusCycle: (id: string) => void;
   onDelete: (id: string) => void;
   onUpdate: (id: string, changes: Partial<TodoItemData>) => void;
+  readOnly?: boolean;
 }
 
-export default function TodoItemCard({ item, onStatusCycle, onDelete, onUpdate }: Props) {
+export default function TodoItemCard({ item, onStatusCycle, onDelete, onUpdate, readOnly = false }: Props) {
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(item.title);
   const [editNote, setEditNote] = useState(item.note ?? '');
@@ -56,14 +58,7 @@ export default function TodoItemCard({ item, onStatusCycle, onDelete, onUpdate }
           autoFocus
         />
         <div className="mb-3">
-          <label className="text-xs text-gray-700 font-medium block mb-1">Deadline <span className="text-red-400">*</span></label>
-          <input
-            type="date"
-            className="text-sm text-gray-600 focus:outline-none border-b border-gray-200 pb-1 w-full"
-            value={editDeadline}
-            onChange={(e) => setEditDeadline(e.target.value)}
-            required
-          />
+          <DeadlinePicker value={editDeadline} onChange={setEditDeadline} />
         </div>
         <textarea
           className="w-full text-sm text-gray-500 resize-none focus:outline-none"
@@ -115,51 +110,55 @@ export default function TodoItemCard({ item, onStatusCycle, onDelete, onUpdate }
           )}
         </div>
 
-        <div className="flex gap-1 flex-shrink-0">
-          <button
-            onClick={() => {
-              setEditTitle(item.title);
-              setEditNote(item.note ?? '');
-              setEditDeadline(item.deadline ?? '');
-              setEditing(true);
-            }}
-            className="p-1.5 text-gray-300 hover:text-indigo-500 transition-colors"
-            aria-label="Edit"
-          >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5m-1.414-9.414a2 2 0 1 1 2.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-            </svg>
-          </button>
-          <button
-            onClick={() => onDelete(item.id)}
-            className="p-1.5 text-gray-300 hover:text-red-400 transition-colors"
-            aria-label="Delete"
-          >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-              <polyline strokeLinecap="round" strokeLinejoin="round" points="3 6 5 6 21 6" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2" />
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      {/* Action button */}
-      <div className="flex items-center gap-2">
-        <button
-          onClick={() => onStatusCycle(item.id)}
-          className={`flex-1 text-sm font-semibold py-2 rounded-xl transition-all active:scale-95 ${actionButton.style}`}
-        >
-          {actionButton.label}
-        </button>
-        {item.status === 'done' && (
-          <button
-            onClick={() => onStatusCycle(item.id)}
-            className="text-xs text-gray-400 underline px-2"
-          >
-            Undo
-          </button>
+        {!readOnly && (
+          <div className="flex gap-1 flex-shrink-0">
+            <button
+              onClick={() => {
+                setEditTitle(item.title);
+                setEditNote(item.note ?? '');
+                setEditDeadline(item.deadline ?? '');
+                setEditing(true);
+              }}
+              className="p-1.5 text-gray-300 hover:text-indigo-500 transition-colors"
+              aria-label="Edit"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5m-1.414-9.414a2 2 0 1 1 2.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </button>
+            <button
+              onClick={() => onDelete(item.id)}
+              className="p-1.5 text-gray-300 hover:text-red-400 transition-colors"
+              aria-label="Delete"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <polyline strokeLinecap="round" strokeLinejoin="round" points="3 6 5 6 21 6" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2" />
+              </svg>
+            </button>
+          </div>
         )}
       </div>
+
+      {/* Action button — hidden on past weeks */}
+      {!readOnly && (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => onStatusCycle(item.id)}
+            className={`flex-1 text-sm font-semibold py-2 rounded-xl transition-all active:scale-95 ${actionButton.style}`}
+          >
+            {actionButton.label}
+          </button>
+          {item.status === 'done' && (
+            <button
+              onClick={() => onStatusCycle(item.id)}
+              className="text-xs text-gray-400 underline px-2"
+            >
+              Undo
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

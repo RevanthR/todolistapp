@@ -3,13 +3,14 @@ import { db } from '@/lib/db';
 import { weeklyTodos, todoItems } from '@/lib/db/schema';
 import { getAuth } from '@/lib/auth';
 import { generateId, getWeekStart } from '@/lib/utils';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, desc } from 'drizzle-orm';
 
 export async function GET(req: NextRequest) {
   const auth = await getAuth(req);
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const weekStart = getWeekStart();
+  const weekParam = req.nextUrl.searchParams.get('week');
+  const weekStart = weekParam ?? getWeekStart();
 
   const [todo] = await db
     .select()
@@ -18,7 +19,7 @@ export async function GET(req: NextRequest) {
     .limit(1);
 
   if (!todo) {
-    return NextResponse.json({ todo: null, items: [] });
+    return NextResponse.json({ todo: null, items: [], weekStart });
   }
 
   const items = await db
@@ -27,7 +28,7 @@ export async function GET(req: NextRequest) {
     .where(eq(todoItems.weeklyTodoId, todo.id))
     .orderBy(todoItems.createdAt);
 
-  return NextResponse.json({ todo, items });
+  return NextResponse.json({ todo, items, weekStart });
 }
 
 export async function POST(req: NextRequest) {
@@ -36,7 +37,6 @@ export async function POST(req: NextRequest) {
 
   const weekStart = getWeekStart();
 
-  // Check if already exists
   const [existing] = await db
     .select()
     .from(weeklyTodos)
@@ -53,4 +53,11 @@ export async function POST(req: NextRequest) {
   const [todo] = await db.select().from(weeklyTodos).where(eq(weeklyTodos.id, id)).limit(1);
 
   return NextResponse.json({ todo }, { status: 201 });
+}
+
+// GET all weeks for history navigation
+export async function HEAD(req: NextRequest) {
+  const auth = await getAuth(req);
+  if (!auth) return new NextResponse(null, { status: 401 });
+  return new NextResponse(null, { status: 200 });
 }

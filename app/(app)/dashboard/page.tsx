@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import ProgressRing from '@/components/ProgressRing';
 import TodoItemCard, { TodoItemData } from '@/components/TodoItemCard';
+import DeadlinePicker from '@/components/DeadlinePicker';
 import { formatWeekRange, getWeekStart } from '@/lib/utils';
 
 interface WeeklyTodo {
@@ -10,30 +11,70 @@ interface WeeklyTodo {
   weekStart: string;
 }
 
+interface SpilloverItem {
+  id: string;
+  title: string;
+  note: string | null;
+}
+
+function offsetWeek(base: string, weeks: number): string {
+  const d = new Date(base + 'T00:00:00');
+  d.setDate(d.getDate() + weeks * 7);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 export default function Dashboard() {
+  const currentWeek = getWeekStart();
+  const [viewWeek, setViewWeek] = useState(currentWeek);
+  const isCurrentWeek = viewWeek === currentWeek;
+
   const [todo, setTodo] = useState<WeeklyTodo | null>(null);
   const [items, setItems] = useState<TodoItemData[]>([]);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
+
+  // Add form
   const [showAddForm, setShowAddForm] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newDeadline, setNewDeadline] = useState('');
   const [newNote, setNewNote] = useState('');
   const [adding, setAdding] = useState(false);
 
-  const weekLabel = formatWeekRange(getWeekStart());
+  // Spillovers
+  const [spillovers, setSpilovers] = useState<SpilloverItem[]>([]);
+  const [selectedSpillovers, setSelectedSpillovers] = useState<Set<string>>(new Set());
+  const [carryingOver, setCarryingOver] = useState(false);
+  const [spilloversDismissed, setSpilloversDismissed] = useState(false);
+
   const doneCount = items.filter((i) => i.status === 'done').length;
   const progress = items.length === 0 ? 0 : Math.round((doneCount / items.length) * 100);
 
   useEffect(() => {
-    fetch('/api/todos')
+    setLoading(true);
+    fetch(`/api/todos${viewWeek !== currentWeek ? `?week=${viewWeek}` : ''}`)
       .then((r) => r.json())
       .then((data) => {
         setTodo(data.todo);
         setItems(data.items ?? []);
         setLoading(false);
       });
-  }, []);
+  }, [viewWeek]);
+
+  // Load spillovers only on current week with no started list
+  useEffect(() => {
+    if (!isCurrentWeek || todo !== null || spilloversDismissed) return;
+    fetch('/api/todos/spillovers')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.spillovers?.length > 0) {
+          setSpilovers(data.spillovers);
+          setSelectedSpillovers(new Set(data.spillovers.map((s: SpilloverItem) => s.id)));
+        }
+      });
+  }, [isCurrentWeek, todo, spilloversDismissed]);
 
   async function startWeek() {
     setStarting(true);
@@ -43,13 +84,36 @@ export default function Dashboard() {
     setStarting(false);
   }
 
+  async function startWithSpillovers() {
+    setCarryingOver(true);
+    // Start the week first
+    const res = await fetch('/api/todos', { method: 'POST' });
+    const data = await res.json();
+    setTodo(data.todo);
+
+    // Carry over selected spillovers
+    if (selectedSpillovers.size > 0) {
+      const carryRes = await fetch('/api/todos/spillovers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ itemIds: Array.from(selectedSpillovers) }),
+      });
+      const carryData = await carryRes.json();
+      if (carryRes.ok) {
+        setItems(carryData.carried ?? []);
+      }
+    }
+    setSpilovers([]);
+    setCarryingOver(false);
+  }
+
   async function addItem() {
     if (!newTitle.trim() || !newDeadline) return;
     setAdding(true);
     const res = await fetch('/api/todos/items', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: newTitle.trim(), deadline: newDeadline || null, note: newNote.trim() || null }),
+      body: JSON.stringify({ title: newTitle.trim(), deadline: newDeadline, note: newNote.trim() || null }),
     });
     const data = await res.json();
     if (res.ok) {
@@ -69,16 +133,12 @@ export default function Dashboard() {
       body: JSON.stringify({ cycleStatus: true }),
     });
     const data = await res.json();
-    if (res.ok) {
-      setItems((prev) => prev.map((i) => (i.id === id ? data.item : i)));
-    }
+    if (res.ok) setItems((prev) => prev.map((i) => (i.id === id ? data.item : i)));
   }
 
   async function deleteItem(id: string) {
     const res = await fetch(`/api/todos/items/${id}`, { method: 'DELETE' });
-    if (res.ok) {
-      setItems((prev) => prev.filter((i) => i.id !== id));
-    }
+    if (res.ok) setItems((prev) => prev.filter((i) => i.id !== id));
   }
 
   async function updateItem(id: string, changes: Partial<TodoItemData>) {
@@ -88,9 +148,7 @@ export default function Dashboard() {
       body: JSON.stringify(changes),
     });
     const data = await res.json();
-    if (res.ok) {
-      setItems((prev) => prev.map((i) => (i.id === id ? data.item : i)));
-    }
+    if (res.ok) setItems((prev) => prev.map((i) => (i.id === id ? data.item : i)));
   }
 
   if (loading) {
@@ -103,19 +161,119 @@ export default function Dashboard() {
 
   return (
     <div className="px-4 pt-6 pb-4">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">This Week</h1>
-          <p className="text-sm text-gray-500 mt-0.5">{weekLabel}</p>
+      {/* Header with week navigation */}
+      <div className="flex items-center justify-between mb-2">
+        <button
+          onClick={() => setViewWeek((w) => offsetWeek(w, -1))}
+          className="p-2 text-gray-400 hover:text-gray-700 transition-colors"
+        >
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+
+        <div className="text-center">
+          <h1 className="text-base font-bold text-gray-900">
+            {isCurrentWeek ? 'This Week' : formatWeekRange(viewWeek)}
+          </h1>
+          {isCurrentWeek && <p className="text-xs text-gray-400">{formatWeekRange(viewWeek)}</p>}
+          {!isCurrentWeek && (
+            <button onClick={() => setViewWeek(currentWeek)} className="text-xs text-indigo-500 font-medium">
+              Back to current week
+            </button>
+          )}
         </div>
-        {todo && items.length > 0 && (
-          <ProgressRing progress={progress} size={60} strokeWidth={6} />
-        )}
+
+        <div className="flex items-center gap-1">
+          {todo && items.length > 0 && isCurrentWeek && (
+            <ProgressRing progress={progress} size={40} strokeWidth={4} />
+          )}
+          <button
+            onClick={() => setViewWeek((w) => offsetWeek(w, 1))}
+            disabled={isCurrentWeek}
+            className="p-2 text-gray-400 hover:text-gray-700 transition-colors disabled:opacity-30"
+          >
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
       </div>
 
-      {/* No week started */}
-      {!todo && (
+      {/* Spillovers banner — shown only on current week when list not started */}
+      {isCurrentWeek && !todo && spillovers.length > 0 && !spilloversDismissed && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-5">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <p className="text-sm font-semibold text-amber-800">Unfinished from last week</p>
+              <p className="text-xs text-amber-600 mt-0.5">Select tasks to carry over</p>
+            </div>
+            <button
+              onClick={() => setSpilloversDismissed(true)}
+              className="text-amber-400 hover:text-amber-600"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <div className="space-y-2 mb-4">
+            {spillovers.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => setSelectedSpillovers((prev) => {
+                  const next = new Set(prev);
+                  next.has(s.id) ? next.delete(s.id) : next.add(s.id);
+                  return next;
+                })}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border-2 text-left transition-colors ${
+                  selectedSpillovers.has(s.id)
+                    ? 'border-amber-400 bg-amber-100'
+                    : 'border-gray-200 bg-white'
+                }`}
+              >
+                <div className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${
+                  selectedSpillovers.has(s.id) ? 'bg-amber-500 border-amber-500' : 'border-gray-300'
+                }`}>
+                  {selectedSpillovers.has(s.id) && (
+                    <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </div>
+                <p className="text-sm font-medium text-gray-800 truncate">{s.title}</p>
+              </button>
+            ))}
+          </div>
+
+          <div className="flex gap-2">
+            <button
+              onClick={startWithSpillovers}
+              disabled={carryingOver || selectedSpillovers.size === 0}
+              className="flex-1 bg-amber-500 text-white text-sm font-semibold py-2.5 rounded-xl disabled:opacity-40"
+            >
+              {carryingOver ? 'Starting…' : `Carry over ${selectedSpillovers.size} task${selectedSpillovers.size !== 1 ? 's' : ''}`}
+            </button>
+            <button
+              onClick={() => { setSpilloversDismissed(true); startWeek(); }}
+              className="flex-1 bg-white border border-gray-200 text-gray-600 text-sm font-medium py-2.5 rounded-xl"
+            >
+              Start fresh
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Past week — no list */}
+      {!isCurrentWeek && !todo && (
+        <div className="text-center py-16">
+          <p className="text-gray-400 text-sm">No goals recorded for this week.</p>
+        </div>
+      )}
+
+      {/* Current week — no list, no spillovers */}
+      {isCurrentWeek && !todo && (spillovers.length === 0 || spilloversDismissed) && (
         <div className="text-center py-16">
           <div className="w-20 h-20 bg-indigo-50 rounded-3xl flex items-center justify-center mx-auto mb-5">
             <svg className="w-10 h-10 text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
@@ -139,9 +297,8 @@ export default function Dashboard() {
       {/* Week started */}
       {todo && (
         <>
-          {/* Summary bar */}
           {items.length > 0 && (
-            <div className="flex gap-3 mb-5">
+            <div className="flex gap-3 mb-5 mt-4">
               <div className="flex-1 bg-white rounded-2xl p-3 border border-gray-100 text-center">
                 <p className="text-2xl font-bold text-gray-900">{items.length}</p>
                 <p className="text-xs text-gray-500">Goals</p>
@@ -157,7 +314,6 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* Item list */}
           <div className="space-y-3">
             {items.length === 0 && !showAddForm && (
               <div className="text-center py-10">
@@ -171,34 +327,27 @@ export default function Dashboard() {
                 onStatusCycle={cycleStatus}
                 onDelete={deleteItem}
                 onUpdate={updateItem}
+                readOnly={!isCurrentWeek}
               />
             ))}
           </div>
 
-          {/* Add item form */}
-          {showAddForm && (
+          {/* Add form — current week only */}
+          {isCurrentWeek && showAddForm && (
             <div className="mt-3 bg-white rounded-2xl p-4 shadow-sm border border-indigo-100">
               <input
                 autoFocus
-                className="w-full text-sm font-medium border-b border-gray-200 pb-2 mb-3 focus:outline-none focus:border-indigo-400"
+                className="w-full text-sm font-medium border-b border-gray-200 pb-2 mb-4 focus:outline-none focus:border-indigo-400"
                 placeholder="What do you want to accomplish?"
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && addItem()}
               />
-              <div className="flex gap-3 mb-3">
-                <div className="flex-1">
-                  <label className="text-xs text-gray-700 font-medium block mb-1">Deadline <span className="text-red-400">*</span></label>
-                  <input
-                    type="date"
-                    className="w-full text-sm text-gray-600 focus:outline-none"
-                    value={newDeadline}
-                    onChange={(e) => setNewDeadline(e.target.value)}
-                  />
-                </div>
+              <div className="mb-4">
+                <DeadlinePicker value={newDeadline} onChange={setNewDeadline} />
               </div>
               <textarea
-                className="w-full text-sm text-gray-500 resize-none focus:outline-none"
+                className="w-full text-sm text-gray-500 resize-none focus:outline-none border-t border-gray-100 pt-3"
                 rows={2}
                 placeholder="Note (optional)"
                 value={newNote}
@@ -222,8 +371,7 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* Add button */}
-          {!showAddForm && (
+          {isCurrentWeek && !showAddForm && (
             <button
               onClick={() => setShowAddForm(true)}
               className="mt-4 w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border-2 border-dashed border-indigo-300 text-indigo-600 font-medium text-sm active:scale-95 transition-transform"
@@ -233,6 +381,11 @@ export default function Dashboard() {
               </svg>
               Add goal
             </button>
+          )}
+
+          {/* Past week read-only notice */}
+          {!isCurrentWeek && (
+            <p className="text-center text-xs text-gray-400 mt-6">Past week — read only</p>
           )}
         </>
       )}
