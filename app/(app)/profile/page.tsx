@@ -2,6 +2,12 @@
 
 import { useEffect, useState } from 'react';
 
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  return Uint8Array.from([...atob(base64)].map((c) => c.charCodeAt(0)));
+}
+
 interface Profile {
   id: string;
   phone: string;
@@ -14,6 +20,27 @@ export default function ProfilePage() {
   const [name, setName] = useState('');
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [notifStatus, setNotifStatus] = useState<'unsupported' | 'default' | 'granted' | 'denied'>('unsupported');
+  const [enablingNotif, setEnablingNotif] = useState(false);
+
+  useEffect(() => {
+    if ('Notification' in window) setNotifStatus(Notification.permission as typeof notifStatus);
+  }, []);
+
+  async function enableNotifications() {
+    setEnablingNotif(true);
+    const perm = await Notification.requestPermission();
+    setNotifStatus(perm as typeof notifStatus);
+    if (perm === 'granted' && 'serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!),
+      });
+      await fetch('/api/push', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(sub) });
+    }
+    setEnablingNotif(false);
+  }
 
   useEffect(() => {
     fetch('/api/profile')
@@ -116,6 +143,37 @@ export default function ProfilePage() {
         <div className="bg-white rounded-2xl p-4 border border-gray-100">
           <p className="text-xs text-gray-400 mb-1">Mobile number</p>
           <p className="text-sm font-medium text-gray-900">+91 {profile?.phone}</p>
+        </div>
+
+        {/* Notifications */}
+        <div className="bg-white rounded-2xl p-4 border border-gray-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-900">Push notifications</p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {notifStatus === 'granted' && 'Enabled — you\'ll get group alerts'}
+                {notifStatus === 'denied' && 'Blocked — enable in browser settings'}
+                {notifStatus === 'default' && 'Get notified when group members complete goals'}
+                {notifStatus === 'unsupported' && 'Not supported on this browser'}
+              </p>
+            </div>
+            {notifStatus === 'default' && (
+              <button
+                onClick={enableNotifications}
+                disabled={enablingNotif}
+                className="text-sm font-semibold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg disabled:opacity-50"
+              >
+                {enablingNotif ? '…' : 'Enable'}
+              </button>
+            )}
+            {notifStatus === 'granted' && (
+              <span className="text-green-500">
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
