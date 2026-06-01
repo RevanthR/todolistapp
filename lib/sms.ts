@@ -46,14 +46,7 @@ export async function sendOTP(phone: string, otp: string): Promise<void> {
   }
 }
 
-// Weekly reminder — growtogether_weekly_nudge (Message ID: 22084)
-export async function sendWeeklyReminder(phone: string, name: string): Promise<void> {
-  const messageId = process.env.FAST2SMS_WA_WEEKLY_TEMPLATE;
-  if (!messageId) return;
-  await sendWhatsApp(messageId, phone, [name]);
-}
-
-// Daily reminder — growtogether_daily_nudge (Message ID: 22085)
+// Daily reminder — growtogether_daily_revanth (Message ID: 22185)
 export async function sendDailyReminder(phone: string, name: string, pendingCount: number): Promise<void> {
   const messageId = process.env.FAST2SMS_WA_DAILY_TEMPLATE;
   if (!messageId) return;
