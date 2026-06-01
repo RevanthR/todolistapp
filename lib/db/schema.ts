@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean, date } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, boolean, date, json } from 'drizzle-orm/pg-core';
 
 export const users = pgTable('users', {
   id: text('id').primaryKey(),
@@ -42,6 +42,15 @@ export const weeklyTodos = pgTable('weekly_todos', {
     .references(() => users.id)
     .notNull(),
   weekStart: date('week_start').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const pushSubscriptions = pgTable('push_subscriptions', {
+  id: text('id').primaryKey(),
+  userId: text('user_id')
+    .references(() => users.id)
+    .notNull(),
+  subscription: json('subscription').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
