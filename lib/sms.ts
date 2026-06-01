@@ -9,7 +9,6 @@ async function sendWhatsApp(templateId: string, numbers: string, variables: stri
   }
 
   const body = new URLSearchParams({
-    authorization: apiKey,
     template_id: templateId,
     numbers,
     variables: variables.join(','),
@@ -17,7 +16,10 @@ async function sendWhatsApp(templateId: string, numbers: string, variables: stri
 
   const res = await fetch('https://www.fast2sms.com/dev/whatsapp', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'authorization': apiKey,
+    },
     body: body.toString(),
   });
 
