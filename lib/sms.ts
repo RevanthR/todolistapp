@@ -2,16 +2,16 @@
 // Reminders via Fast2SMS WhatsApp Manager (Utility templates)
 
 async function sendWhatsApp(templateId: string, numbers: string, variables: string[]): Promise<void> {
-  if (!process.env.FAST2SMS_API_KEY) {
+  const apiKey = process.env.FAST2SMS_WA_API_KEY ?? process.env.FAST2SMS_API_KEY;
+  if (!apiKey) {
     console.log(`[DEV] WhatsApp template ${templateId} to ${numbers}:`, variables);
     return;
   }
 
   const body = new URLSearchParams({
-    authorization: process.env.FAST2SMS_API_KEY,
+    authorization: apiKey,
     template_id: templateId,
     numbers,
-    // Fast2SMS expects variables as comma-separated values
     variables: variables.join(','),
   });
 
