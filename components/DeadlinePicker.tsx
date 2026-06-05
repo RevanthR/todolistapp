@@ -5,10 +5,11 @@ import { getWeekStart } from '@/lib/utils';
 interface Props {
   value: string;
   onChange: (date: string) => void;
+  weekStart?: string;
 }
 
-export default function DeadlinePicker({ value, onChange }: Props) {
-  const weekStart = new Date(getWeekStart() + 'T00:00:00');
+export default function DeadlinePicker({ value, onChange, weekStart: weekStartProp }: Props) {
+  const weekStart = new Date((weekStartProp ?? getWeekStart()) + 'T00:00:00');
 
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(weekStart);

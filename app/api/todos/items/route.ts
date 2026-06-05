@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
   const auth = await getAuth(req);
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { title, deadline, note } = await req.json();
+  const { title, deadline, note, weekStart: weekParam } = await req.json();
 
   if (!title || title.trim().length === 0) {
     return NextResponse.json({ error: 'Title is required' }, { status: 400 });
@@ -19,16 +19,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Deadline is required' }, { status: 400 });
   }
 
-  const weekStart = getWeekStart();
+  const weekStart = weekParam ?? getWeekStart();
 
-  const [todo] = await db
+  // Reject past weeks
+  if (weekStart < getWeekStart()) {
+    return NextResponse.json({ error: 'Cannot add items to past weeks' }, { status: 400 });
+  }
+
+  // Auto-create the weekly todo if it doesn't exist
+  let [todo] = await db
     .select()
     .from(weeklyTodos)
     .where(and(eq(weeklyTodos.userId, auth.userId), eq(weeklyTodos.weekStart, weekStart)))
     .limit(1);
 
   if (!todo) {
-    return NextResponse.json({ error: 'Start your week first' }, { status: 400 });
+    const id = generateId();
+    await db.insert(weeklyTodos).values({ id, userId: auth.userId, weekStart });
+    [todo] = await db.select().from(weeklyTodos).where(eq(weeklyTodos.id, id)).limit(1);
   }
 
   const id = generateId();
@@ -36,7 +44,7 @@ export async function POST(req: NextRequest) {
     id,
     weeklyTodoId: todo.id,
     title: title.trim(),
-    deadline: deadline || null,
+    deadline,
     note: note?.trim() || null,
     status: 'pending',
     updatedAt: new Date(),

@@ -28,8 +28,12 @@ function offsetWeek(base: string, weeks: number): string {
 
 export default function Dashboard() {
   const currentWeek = getWeekStart();
+  const nextWeek = offsetWeek(currentWeek, 1);
   const [viewWeek, setViewWeek] = useState(currentWeek);
   const isCurrentWeek = viewWeek === currentWeek;
+  const isNextWeek = viewWeek === nextWeek;
+  const isPastWeek = viewWeek < currentWeek;
+  const canEdit = isCurrentWeek || isNextWeek;
 
   const [todo, setTodo] = useState<WeeklyTodo | null>(null);
   const [items, setItems] = useState<TodoItemData[]>([]);
@@ -107,7 +111,7 @@ export default function Dashboard() {
     const res = await fetch('/api/todos/items', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: newTitle.trim(), deadline: newDeadline, note: newNote.trim() || null }),
+      body: JSON.stringify({ title: newTitle.trim(), deadline: newDeadline, note: newNote.trim() || null, weekStart: viewWeek }),
     });
     const data = await res.json();
     if (res.ok) {
@@ -162,7 +166,7 @@ export default function Dashboard() {
         </button>
         <div className="text-center">
           <p className="text-xs font-semibold text-indigo-500 uppercase tracking-wide">
-            {isCurrentWeek ? 'This Week' : 'Past Week'}
+            {isCurrentWeek ? 'This Week' : isNextWeek ? 'Next Week' : 'Past Week'}
           </p>
           <p className="text-sm text-gray-500">{formatWeekRange(viewWeek)}</p>
           {!isCurrentWeek && (
@@ -173,7 +177,7 @@ export default function Dashboard() {
         </div>
         <button
           onClick={() => setViewWeek((w) => offsetWeek(w, 1))}
-          disabled={isCurrentWeek}
+          disabled={isNextWeek}
           className="p-2 text-gray-400 disabled:opacity-30"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -243,23 +247,24 @@ export default function Dashboard() {
       {/* No week started */}
       {!todo && (spillovers.length === 0 || spilloversDismissed) && (
         <div className="text-center py-16">
-          {isCurrentWeek ? (
+          {canEdit ? (
             <>
               <div className="w-20 h-20 bg-indigo-50 rounded-3xl flex items-center justify-center mx-auto mb-5">
                 <svg className="w-10 h-10 text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <h2 className="text-lg font-semibold text-gray-900 mb-2">Start your week!</h2>
+              <h2 className="text-lg font-semibold text-gray-900 mb-2">
+                {isNextWeek ? 'Plan next week!' : 'Start your week!'}
+              </h2>
               <p className="text-sm text-gray-500 mb-8 max-w-xs mx-auto">
-                Set your goals and track progress with your group.
+                {isNextWeek ? 'Get ahead by setting your goals for next week.' : 'Set your goals and track progress with your group.'}
               </p>
               <button
-                onClick={startWeek}
-                disabled={starting}
-                className="bg-indigo-600 text-white font-semibold px-8 py-3.5 rounded-2xl disabled:opacity-50 active:scale-95 transition-transform"
+                onClick={() => setShowAddForm(true)}
+                className="bg-indigo-600 text-white font-semibold px-8 py-3.5 rounded-2xl active:scale-95 transition-transform"
               >
-                {starting ? 'Starting…' : '🚀 Start this week'}
+                {isNextWeek ? '📅 Plan next week' : '🚀 Start this week'}
               </button>
             </>
           ) : (
@@ -311,7 +316,7 @@ export default function Dashboard() {
                     onStatusCycle={cycleStatus}
                     onDelete={deleteItem}
                     onUpdate={updateItem}
-                    readOnly={!isCurrentWeek}
+                    readOnly={isPastWeek}
                   />
                 ))}
               </div>
@@ -326,7 +331,7 @@ export default function Dashboard() {
           )}
 
           {/* Add form */}
-          {isCurrentWeek && showAddForm && (
+          {canEdit && showAddForm && (
             <div className="mt-1 mb-5 bg-white rounded-2xl p-4 shadow-sm border border-indigo-100">
               <input
                 autoFocus
@@ -337,7 +342,7 @@ export default function Dashboard() {
                 onKeyDown={(e) => e.key === 'Enter' && addItem()}
               />
               <div className="mb-4">
-                <DeadlinePicker value={newDeadline} onChange={setNewDeadline} />
+                <DeadlinePicker value={newDeadline} onChange={setNewDeadline} weekStart={viewWeek} />
               </div>
               <textarea
                 className="w-full text-sm text-gray-500 resize-none focus:outline-none border-t border-gray-100 pt-3"
@@ -365,7 +370,7 @@ export default function Dashboard() {
           )}
 
           {/* Add button */}
-          {isCurrentWeek && !showAddForm && (
+          {canEdit && !showAddForm && (
             <button
               onClick={() => setShowAddForm(true)}
               className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-dashed border-indigo-200 text-indigo-500 font-medium text-sm active:scale-95 transition-transform mb-5"
@@ -403,7 +408,7 @@ export default function Dashboard() {
                       onStatusCycle={cycleStatus}
                       onDelete={deleteItem}
                       onUpdate={updateItem}
-                      readOnly={!isCurrentWeek}
+                      readOnly={isPastWeek}
                     />
                   ))}
                 </div>
@@ -411,7 +416,7 @@ export default function Dashboard() {
             </div>
           )}
 
-          {!isCurrentWeek && (
+          {isPastWeek && (
             <p className="text-center text-xs text-gray-400 mt-4">Past week — read only</p>
           )}
         </>
