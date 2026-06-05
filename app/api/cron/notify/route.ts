@@ -19,8 +19,12 @@ async function pushToUser(userId: string, payload: { title: string; body: string
 }
 
 export async function GET(req: NextRequest) {
-  const secret = req.headers.get('authorization') ?? req.nextUrl.searchParams.get('secret');
-  if (secret !== process.env.CRON_SECRET) {
+  const authHeader = req.headers.get('authorization');
+  const querySecret = req.nextUrl.searchParams.get('secret');
+  const authorized =
+    authHeader === `Bearer ${process.env.CRON_SECRET}` ||
+    querySecret === process.env.CRON_SECRET;
+  if (!authorized) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
