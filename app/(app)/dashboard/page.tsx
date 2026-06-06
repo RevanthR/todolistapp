@@ -316,6 +316,7 @@ export default function Dashboard() {
                 onDelete={deleteItem}
                 onUpdate={updateItem}
                 readOnly={isPastWeek}
+                extendDeadline={isCurrentWeek}
               />
             ))}
           </div>
@@ -341,7 +342,7 @@ export default function Dashboard() {
             onKeyDown={(e) => e.key === 'Enter' && addItem()}
           />
           <div className="mb-4">
-            <DeadlinePicker value={newDeadline} onChange={setNewDeadline} weekStart={viewWeek} />
+            <DeadlinePicker value={newDeadline} onChange={setNewDeadline} weekStart={viewWeek} extendToNextWeek={isCurrentWeek} />
           </div>
           <textarea
             className="w-full text-sm text-gray-500 resize-none focus:outline-none border-t border-gray-100 pt-3"

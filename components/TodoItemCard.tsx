@@ -20,9 +20,10 @@ interface Props {
   onDelete: (id: string) => void;
   onUpdate: (id: string, changes: Partial<TodoItemData>) => void;
   readOnly?: boolean;
+  extendDeadline?: boolean;
 }
 
-export default function TodoItemCard({ item, onStatusCycle, onDelete, onUpdate, readOnly = false }: Props) {
+export default function TodoItemCard({ item, onStatusCycle, onDelete, onUpdate, readOnly = false, extendDeadline = false }: Props) {
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(item.title);
   const [editNote, setEditNote] = useState(item.note ?? '');
@@ -58,7 +59,7 @@ export default function TodoItemCard({ item, onStatusCycle, onDelete, onUpdate, 
           autoFocus
         />
         <div className="mb-3">
-          <DeadlinePicker value={editDeadline} onChange={setEditDeadline} />
+          <DeadlinePicker value={editDeadline} onChange={setEditDeadline} extendToNextWeek={extendDeadline} />
         </div>
         <textarea
           className="w-full text-sm text-gray-500 resize-none focus:outline-none"
