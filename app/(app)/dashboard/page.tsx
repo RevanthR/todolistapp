@@ -273,153 +273,146 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Week started — categorized view */}
-      {todo && (
-        <>
-          {/* Progress summary */}
-          {items.length > 0 && (
-            <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm mb-5">
-              <div className="flex items-center gap-4">
-                <ProgressRing progress={progress} size={64} strokeWidth={6} />
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-gray-900">
-                    {progress === 100 ? 'All done! 🎉' : `${completed.length} of ${items.length} completed`}
-                  </p>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    {pending.length > 0
-                      ? `${pending.length} task${pending.length > 1 ? 's' : ''} remaining`
-                      : 'Great work this week!'}
-                  </p>
-                  {/* Progress bar */}
-                  <div className="h-1.5 bg-gray-100 rounded-full mt-2 overflow-hidden">
-                    <div
-                      className="h-full bg-indigo-500 rounded-full transition-all"
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Pending section */}
-          {(pending.length > 0 || (isCurrentWeek && showAddForm)) && (
-            <div className="mb-5">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-                Pending · {pending.length}
+      {/* Progress summary — only when week started with items */}
+      {todo && items.length > 0 && (
+        <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm mb-5">
+          <div className="flex items-center gap-4">
+            <ProgressRing progress={progress} size={64} strokeWidth={6} />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-gray-900">
+                {progress === 100 ? 'All done! 🎉' : `${completed.length} of ${items.length} completed`}
               </p>
-              <div className="space-y-3">
-                {pending.map((item) => (
-                  <TodoItemCard
-                    key={item.id}
-                    item={item}
-                    onStatusCycle={cycleStatus}
-                    onDelete={deleteItem}
-                    onUpdate={updateItem}
-                    readOnly={isPastWeek}
-                  />
-                ))}
+              <p className="text-xs text-gray-400 mt-0.5">
+                {pending.length > 0
+                  ? `${pending.length} task${pending.length > 1 ? 's' : ''} remaining`
+                  : 'Great work this week!'}
+              </p>
+              <div className="h-1.5 bg-gray-100 rounded-full mt-2 overflow-hidden">
+                <div className="h-full bg-indigo-500 rounded-full transition-all" style={{ width: `${progress}%` }} />
               </div>
             </div>
-          )}
+          </div>
+        </div>
+      )}
 
-          {/* Empty state */}
-          {items.length === 0 && !showAddForm && isCurrentWeek && (
-            <div className="text-center py-8">
-              <p className="text-gray-400 text-sm">No goals yet — add your first one!</p>
-            </div>
-          )}
-
-          {/* Add form */}
-          {canEdit && showAddForm && (
-            <div className="mt-1 mb-5 bg-white rounded-2xl p-4 shadow-sm border border-indigo-100">
-              <input
-                autoFocus
-                className="w-full text-sm font-medium border-b border-gray-200 pb-2 mb-4 focus:outline-none focus:border-indigo-400"
-                placeholder="What do you want to accomplish?"
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && addItem()}
+      {/* Pending items */}
+      {todo && pending.length > 0 && (
+        <div className="mb-5">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+            Pending · {pending.length}
+          </p>
+          <div className="space-y-3">
+            {pending.map((item) => (
+              <TodoItemCard
+                key={item.id}
+                item={item}
+                onStatusCycle={cycleStatus}
+                onDelete={deleteItem}
+                onUpdate={updateItem}
+                readOnly={isPastWeek}
               />
-              <div className="mb-4">
-                <DeadlinePicker value={newDeadline} onChange={setNewDeadline} weekStart={viewWeek} />
-              </div>
-              <textarea
-                className="w-full text-sm text-gray-500 resize-none focus:outline-none border-t border-gray-100 pt-3"
-                rows={2}
-                placeholder="Note (optional)"
-                value={newNote}
-                onChange={(e) => setNewNote(e.target.value)}
-              />
-              <div className="flex gap-2 mt-3">
-                <button
-                  onClick={addItem}
-                  disabled={adding || !newTitle.trim() || !newDeadline}
-                  className="flex-1 bg-indigo-600 text-white text-sm font-semibold py-2.5 rounded-xl disabled:opacity-40"
-                >
-                  {adding ? 'Adding…' : 'Add goal'}
-                </button>
-                <button
-                  onClick={() => { setShowAddForm(false); setNewTitle(''); setNewDeadline(''); setNewNote(''); }}
-                  className="flex-1 bg-gray-100 text-gray-600 text-sm font-medium py-2.5 rounded-xl"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
+            ))}
+          </div>
+        </div>
+      )}
 
-          {/* Add button */}
-          {canEdit && !showAddForm && (
+      {/* Empty state when week started but no items */}
+      {todo && items.length === 0 && !showAddForm && (
+        <div className="text-center py-8">
+          <p className="text-gray-400 text-sm">No goals yet — add your first one!</p>
+        </div>
+      )}
+
+      {/* Add form — shown for current and next week, regardless of todo */}
+      {canEdit && showAddForm && (
+        <div className="mt-1 mb-5 bg-white rounded-2xl p-4 shadow-sm border border-indigo-100">
+          <input
+            autoFocus
+            className="w-full text-sm font-medium border-b border-gray-200 pb-2 mb-4 focus:outline-none focus:border-indigo-400"
+            placeholder="What do you want to accomplish?"
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && addItem()}
+          />
+          <div className="mb-4">
+            <DeadlinePicker value={newDeadline} onChange={setNewDeadline} weekStart={viewWeek} />
+          </div>
+          <textarea
+            className="w-full text-sm text-gray-500 resize-none focus:outline-none border-t border-gray-100 pt-3"
+            rows={2}
+            placeholder="Note (optional)"
+            value={newNote}
+            onChange={(e) => setNewNote(e.target.value)}
+          />
+          <div className="flex gap-2 mt-3">
             <button
-              onClick={() => setShowAddForm(true)}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-dashed border-indigo-200 text-indigo-500 font-medium text-sm active:scale-95 transition-transform mb-5"
+              onClick={addItem}
+              disabled={adding || !newTitle.trim() || !newDeadline}
+              className="flex-1 bg-indigo-600 text-white text-sm font-semibold py-2.5 rounded-xl disabled:opacity-40"
             >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14M5 12h14" />
-              </svg>
-              Add goal
+              {adding ? 'Adding…' : 'Add goal'}
             </button>
-          )}
+            <button
+              onClick={() => { setShowAddForm(false); setNewTitle(''); setNewDeadline(''); setNewNote(''); }}
+              className="flex-1 bg-gray-100 text-gray-600 text-sm font-medium py-2.5 rounded-xl"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
-          {/* Completed section */}
-          {completed.length > 0 && (
-            <div>
-              <button
-                onClick={() => setShowCompleted((v) => !v)}
-                className="flex items-center gap-2 w-full mb-3"
-              >
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                  Completed · {completed.length}
-                </p>
-                <svg
-                  className={`w-3.5 h-3.5 text-gray-400 transition-transform ${showCompleted ? 'rotate-180' : ''}`}
-                  viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {showCompleted && (
-                <div className="space-y-3">
-                  {completed.map((item) => (
-                    <TodoItemCard
-                      key={item.id}
-                      item={item}
-                      onStatusCycle={cycleStatus}
-                      onDelete={deleteItem}
-                      onUpdate={updateItem}
-                      readOnly={isPastWeek}
-                    />
-                  ))}
-                </div>
-              )}
+      {/* Add button */}
+      {canEdit && !showAddForm && (todo || true) && !(
+        !todo && (spillovers.length > 0 && !spilloversDismissed)
+      ) && (
+        <button
+          onClick={() => setShowAddForm(true)}
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-dashed border-indigo-200 text-indigo-500 font-medium text-sm active:scale-95 transition-transform mb-5"
+        >
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14M5 12h14" />
+          </svg>
+          Add goal
+        </button>
+      )}
+
+      {/* Completed section */}
+      {todo && completed.length > 0 && (
+        <div>
+          <button
+            onClick={() => setShowCompleted((v) => !v)}
+            className="flex items-center gap-2 w-full mb-3"
+          >
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              Completed · {completed.length}
+            </p>
+            <svg
+              className={`w-3.5 h-3.5 text-gray-400 transition-transform ${showCompleted ? 'rotate-180' : ''}`}
+              viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          {showCompleted && (
+            <div className="space-y-3">
+              {completed.map((item) => (
+                <TodoItemCard
+                  key={item.id}
+                  item={item}
+                  onStatusCycle={cycleStatus}
+                  onDelete={deleteItem}
+                  onUpdate={updateItem}
+                  readOnly={isPastWeek}
+                />
+              ))}
             </div>
           )}
+        </div>
+      )}
 
-          {isPastWeek && (
-            <p className="text-center text-xs text-gray-400 mt-4">Past week — read only</p>
-          )}
-        </>
+      {isPastWeek && (
+        <p className="text-center text-xs text-gray-400 mt-4">Past week — read only</p>
       )}
     </div>
   );
