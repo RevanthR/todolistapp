@@ -58,12 +58,18 @@ export default function Dashboard() {
 
   useEffect(() => {
     setLoading(true);
+    setShowAddForm(false);
+    setNewTitle(''); setNewDeadline(''); setNewNote('');
     fetch(`/api/todos${viewWeek !== currentWeek ? `?week=${viewWeek}` : ''}`)
       .then((r) => r.json())
       .then((data) => {
         setTodo(data.todo);
         setItems(data.items ?? []);
         setLoading(false);
+        // Auto-open add form when navigating to next week with no goals yet
+        if (data.todo === null && viewWeek > currentWeek) {
+          setShowAddForm(true);
+        }
       });
   }, [viewWeek]);
 
@@ -363,9 +369,7 @@ export default function Dashboard() {
       )}
 
       {/* Add button */}
-      {canEdit && !showAddForm && (todo || true) && !(
-        !todo && (spillovers.length > 0 && !spilloversDismissed)
-      ) && (
+      {canEdit && !showAddForm && !(spillovers.length > 0 && !spilloversDismissed && !todo) && (
         <button
           onClick={() => setShowAddForm(true)}
           className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-dashed border-indigo-200 text-indigo-500 font-medium text-sm active:scale-95 transition-transform mb-5"
