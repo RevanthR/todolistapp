@@ -21,9 +21,10 @@ interface Props {
   onUpdate: (id: string, changes: Partial<TodoItemData>) => void;
   readOnly?: boolean;
   extendDeadline?: boolean;
+  isSpillover?: boolean;
 }
 
-export default function TodoItemCard({ item, onStatusCycle, onDelete, onUpdate, readOnly = false, extendDeadline = false }: Props) {
+export default function TodoItemCard({ item, onStatusCycle, onDelete, onUpdate, readOnly = false, extendDeadline = false, isSpillover = false }: Props) {
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(item.title);
   const [editNote, setEditNote] = useState(item.note ?? '');
@@ -96,6 +97,11 @@ export default function TodoItemCard({ item, onStatusCycle, onDelete, onUpdate, 
             {item.title}
           </p>
           <div className="flex flex-wrap items-center gap-2 mt-1">
+            {isSpillover && (
+              <span className="text-xs px-1.5 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700">
+                Spillover
+              </span>
+            )}
             {item.deadline && (
               <span className="text-xs text-gray-400 flex items-center gap-1">
                 <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>

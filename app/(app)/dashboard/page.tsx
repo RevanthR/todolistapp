@@ -11,12 +11,6 @@ interface WeeklyTodo {
   weekStart: string;
 }
 
-interface SpilloverItem {
-  id: string;
-  title: string;
-  note: string | null;
-}
-
 function offsetWeek(base: string, weeks: number): string {
   const d = new Date(base + 'T00:00:00');
   d.setDate(d.getDate() + weeks * 7);
@@ -38,7 +32,6 @@ export default function Dashboard() {
   const [todo, setTodo] = useState<WeeklyTodo | null>(null);
   const [items, setItems] = useState<TodoItemData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [starting, setStarting] = useState(false);
   const [showCompleted, setShowCompleted] = useState(false);
 
   const [showAddForm, setShowAddForm] = useState(false);
@@ -47,10 +40,7 @@ export default function Dashboard() {
   const [newNote, setNewNote] = useState('');
   const [adding, setAdding] = useState(false);
 
-  const [spillovers, setSpillovers] = useState<SpilloverItem[]>([]);
-  const [selectedSpillovers, setSelectedSpillovers] = useState<Set<string>>(new Set());
-  const [carryingOver, setCarryingOver] = useState(false);
-  const [spilloversDismissed, setSpilloversDismissed] = useState(false);
+  const [spillovers, setSpillovers] = useState<TodoItemData[]>([]);
 
   const pending = items.filter((i) => i.status !== 'done');
   const completed = items.filter((i) => i.status === 'done');
@@ -74,42 +64,14 @@ export default function Dashboard() {
   }, [viewWeek]);
 
   useEffect(() => {
-    if (!isCurrentWeek || todo !== null || spilloversDismissed) return;
+    if (!isCurrentWeek) {
+      setSpillovers([]);
+      return;
+    }
     fetch('/api/todos/spillovers')
       .then((r) => r.json())
-      .then((data) => {
-        if (data.spillovers?.length > 0) {
-          setSpillovers(data.spillovers);
-          setSelectedSpillovers(new Set(data.spillovers.map((s: SpilloverItem) => s.id)));
-        }
-      });
-  }, [isCurrentWeek, todo, spilloversDismissed]);
-
-  async function startWeek() {
-    setStarting(true);
-    const res = await fetch('/api/todos', { method: 'POST' });
-    const data = await res.json();
-    setTodo(data.todo);
-    setStarting(false);
-  }
-
-  async function startWithSpillovers() {
-    setCarryingOver(true);
-    const res = await fetch('/api/todos', { method: 'POST' });
-    const data = await res.json();
-    setTodo(data.todo);
-    if (selectedSpillovers.size > 0) {
-      const carryRes = await fetch('/api/todos/spillovers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ itemIds: Array.from(selectedSpillovers) }),
-      });
-      const carryData = await carryRes.json();
-      if (carryRes.ok) setItems(carryData.carried ?? []);
-    }
-    setSpillovers([]);
-    setCarryingOver(false);
-  }
+      .then((data) => setSpillovers(data.spillovers ?? []));
+  }, [isCurrentWeek]);
 
   async function addItem() {
     if (!newTitle.trim() || !newDeadline) return;
@@ -128,29 +90,48 @@ export default function Dashboard() {
     setAdding(false);
   }
 
+  // Spillover items live in last week's record — update or drop them from the
+  // spillovers list in place rather than the current week's items list.
+  function applyItemUpdate(id: string, updated: TodoItemData | null, isSpilloverItem: boolean) {
+    if (isSpilloverItem) {
+      setSpillovers((prev) =>
+        updated && updated.status !== 'done'
+          ? prev.map((i) => (i.id === id ? updated : i))
+          : prev.filter((i) => i.id !== id)
+      );
+    } else {
+      setItems((prev) =>
+        updated ? prev.map((i) => (i.id === id ? updated : i)) : prev.filter((i) => i.id !== id)
+      );
+    }
+  }
+
   async function cycleStatus(id: string) {
+    const isSpilloverItem = spillovers.some((s) => s.id === id);
     const res = await fetch(`/api/todos/items/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ cycleStatus: true }),
     });
     const data = await res.json();
-    if (res.ok) setItems((prev) => prev.map((i) => (i.id === id ? data.item : i)));
+    if (res.ok) applyItemUpdate(id, data.item, isSpilloverItem);
   }
 
   async function deleteItem(id: string) {
+    const isSpilloverItem = spillovers.some((s) => s.id === id);
     const res = await fetch(`/api/todos/items/${id}`, { method: 'DELETE' });
-    if (res.ok) setItems((prev) => prev.filter((i) => i.id !== id));
+    if (res.ok) applyItemUpdate(id, null, isSpilloverItem);
   }
 
   async function updateItem(id: string, changes: Partial<TodoItemData>) {
+    const isSpilloverItem = spillovers.some((s) => s.id === id);
     const res = await fetch(`/api/todos/items/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(changes),
     });
     const data = await res.json();
-    if (res.ok) setItems((prev) => prev.map((i) => (i.id === id ? data.item : i)));
+    if (res.ok) applyItemUpdate(id, data.item, isSpilloverItem);
   }
 
   if (loading) {
@@ -192,66 +173,8 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {/* Spillovers banner */}
-      {isCurrentWeek && !todo && spillovers.length > 0 && !spilloversDismissed && (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-5">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <p className="text-sm font-semibold text-amber-800">Unfinished from last week</p>
-              <p className="text-xs text-amber-600 mt-0.5">Select tasks to carry over</p>
-            </div>
-            <button onClick={() => setSpilloversDismissed(true)} className="text-amber-400">
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-          <div className="space-y-2 mb-4">
-            {spillovers.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => setSelectedSpillovers((prev) => {
-                  const next = new Set(prev);
-                  next.has(s.id) ? next.delete(s.id) : next.add(s.id);
-                  return next;
-                })}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border-2 text-left transition-colors ${
-                  selectedSpillovers.has(s.id) ? 'border-amber-400 bg-amber-100' : 'border-gray-200 bg-white'
-                }`}
-              >
-                <div className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${
-                  selectedSpillovers.has(s.id) ? 'bg-amber-500 border-amber-500' : 'border-gray-300'
-                }`}>
-                  {selectedSpillovers.has(s.id) && (
-                    <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  )}
-                </div>
-                <p className="text-sm font-medium text-gray-800 truncate">{s.title}</p>
-              </button>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={startWithSpillovers}
-              disabled={carryingOver || selectedSpillovers.size === 0}
-              className="flex-1 bg-amber-500 text-white text-sm font-semibold py-2.5 rounded-xl disabled:opacity-40"
-            >
-              {carryingOver ? 'Starting…' : `Carry over ${selectedSpillovers.size} task${selectedSpillovers.size !== 1 ? 's' : ''}`}
-            </button>
-            <button
-              onClick={() => { setSpilloversDismissed(true); startWeek(); }}
-              className="flex-1 bg-white border border-gray-200 text-gray-600 text-sm font-medium py-2.5 rounded-xl"
-            >
-              Start fresh
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* No week started */}
-      {!todo && (spillovers.length === 0 || spilloversDismissed) && (
+      {/* No week started, and nothing carried over from last week */}
+      {!todo && spillovers.length === 0 && (
         <div className="text-center py-16">
           {canEdit ? (
             <>
@@ -301,13 +224,24 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Pending items */}
-      {todo && pending.length > 0 && (
+      {/* Pending items — this week's own goals plus any unfinished carried over from last week */}
+      {(pending.length > 0 || spillovers.length > 0) && (
         <div className="mb-5">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-            Pending · {pending.length}
+            Pending · {pending.length + spillovers.length}
           </p>
           <div className="space-y-3">
+            {spillovers.map((item) => (
+              <TodoItemCard
+                key={item.id}
+                item={item}
+                onStatusCycle={cycleStatus}
+                onDelete={deleteItem}
+                onUpdate={updateItem}
+                extendDeadline
+                isSpillover
+              />
+            ))}
             {pending.map((item) => (
               <TodoItemCard
                 key={item.id}
@@ -324,7 +258,7 @@ export default function Dashboard() {
       )}
 
       {/* Empty state when week started but no items */}
-      {todo && items.length === 0 && !showAddForm && (
+      {todo && items.length === 0 && spillovers.length === 0 && !showAddForm && (
         <div className="text-center py-8">
           <p className="text-gray-400 text-sm">No goals yet — add your first one!</p>
         </div>
@@ -370,7 +304,7 @@ export default function Dashboard() {
       )}
 
       {/* Add button */}
-      {canEdit && !showAddForm && !(spillovers.length > 0 && !spilloversDismissed && !todo) && (
+      {canEdit && !showAddForm && (
         <button
           onClick={() => setShowAddForm(true)}
           className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-dashed border-indigo-200 text-indigo-500 font-medium text-sm active:scale-95 transition-transform mb-5"
