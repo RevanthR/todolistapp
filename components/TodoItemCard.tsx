@@ -16,7 +16,7 @@ export interface TodoItemData {
 
 interface Props {
   item: TodoItemData;
-  onStatusCycle: (id: string) => void;
+  onStatusCycle: (id: string) => void | Promise<void>;
   onDelete: (id: string) => void;
   onUpdate: (id: string, changes: Partial<TodoItemData>) => void;
   readOnly?: boolean;
@@ -30,6 +30,17 @@ export default function TodoItemCard({ item, onStatusCycle, onDelete, onUpdate, 
   const [editNote, setEditNote] = useState(item.note ?? '');
   const [editDeadline, setEditDeadline] = useState(item.deadline ?? '');
   const [saving, setSaving] = useState(false);
+  const [cycling, setCycling] = useState(false);
+
+  async function handleStatusCycle() {
+    if (cycling) return;
+    setCycling(true);
+    try {
+      await onStatusCycle(item.id);
+    } finally {
+      setCycling(false);
+    }
+  }
 
   async function saveEdit() {
     if (!editTitle.trim() || !editDeadline) return;
@@ -151,15 +162,20 @@ export default function TodoItemCard({ item, onStatusCycle, onDelete, onUpdate, 
       {!readOnly && (
         <div className="flex items-center gap-2">
           <button
-            onClick={() => onStatusCycle(item.id)}
-            className={`flex-1 text-sm font-semibold py-2 rounded-xl transition-all active:scale-95 ${actionButton.style}`}
+            onClick={handleStatusCycle}
+            disabled={cycling}
+            className={`flex-1 flex items-center justify-center gap-2 text-sm font-semibold py-2 rounded-xl transition-all active:scale-95 disabled:opacity-70 ${actionButton.style}`}
           >
-            {actionButton.label}
+            {cycling && (
+              <span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+            )}
+            {cycling ? 'Updating…' : actionButton.label}
           </button>
           {item.status === 'done' && (
             <button
-              onClick={() => onStatusCycle(item.id)}
-              className="text-xs text-gray-400 underline px-2"
+              onClick={handleStatusCycle}
+              disabled={cycling}
+              className="text-xs text-gray-400 underline px-2 disabled:opacity-50"
             >
               Undo
             </button>
