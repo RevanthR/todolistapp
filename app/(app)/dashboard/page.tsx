@@ -45,6 +45,8 @@ export default function Dashboard() {
   const pending = items.filter((i) => i.status !== 'done');
   const completed = items.filter((i) => i.status === 'done');
   const progress = items.length === 0 ? 0 : Math.round((completed.length / items.length) * 100);
+  const spilloverPending = spillovers.filter((i) => i.status !== 'done');
+  const spilloverCompleted = spillovers.filter((i) => i.status === 'done');
 
   useEffect(() => {
     setLoading(true);
@@ -90,14 +92,15 @@ export default function Dashboard() {
     setAdding(false);
   }
 
-  // Spillover items live in last week's record — update or drop them from the
-  // spillovers list in place rather than the current week's items list.
+  // Spillover items live in a past week's record — update or drop them from
+  // the spillovers list in place rather than the current week's items list.
+  // A spillover marked done stays in the list (it flows from the Pending
+  // bucket to the Completed bucket via the status filters above) so it's
+  // still visible as "completed this week" until the week rolls over.
   function applyItemUpdate(id: string, updated: TodoItemData | null, isSpilloverItem: boolean) {
     if (isSpilloverItem) {
       setSpillovers((prev) =>
-        updated && updated.status !== 'done'
-          ? prev.map((i) => (i.id === id ? updated : i))
-          : prev.filter((i) => i.id !== id)
+        updated ? prev.map((i) => (i.id === id ? updated : i)) : prev.filter((i) => i.id !== id)
       );
     } else {
       setItems((prev) =>
@@ -224,14 +227,14 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Pending items — this week's own goals plus any unfinished carried over from last week */}
-      {(pending.length > 0 || spillovers.length > 0) && (
+      {/* Pending items — this week's own goals plus any unfinished carried over from past weeks */}
+      {(pending.length > 0 || spilloverPending.length > 0) && (
         <div className="mb-5">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-            Pending · {pending.length + spillovers.length}
+            Pending · {pending.length + spilloverPending.length}
           </p>
           <div className="space-y-3">
-            {spillovers.map((item) => (
+            {spilloverPending.map((item) => (
               <TodoItemCard
                 key={item.id}
                 item={item}
@@ -316,15 +319,15 @@ export default function Dashboard() {
         </button>
       )}
 
-      {/* Completed section */}
-      {todo && completed.length > 0 && (
+      {/* Completed section — includes past-week spillovers completed this week */}
+      {(completed.length > 0 || spilloverCompleted.length > 0) && (
         <div>
           <button
             onClick={() => setShowCompleted((v) => !v)}
             className="flex items-center gap-2 w-full mb-3"
           >
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              Completed · {completed.length}
+              Completed · {completed.length + spilloverCompleted.length}
             </p>
             <svg
               className={`w-3.5 h-3.5 text-gray-400 transition-transform ${showCompleted ? 'rotate-180' : ''}`}
@@ -335,6 +338,17 @@ export default function Dashboard() {
           </button>
           {showCompleted && (
             <div className="space-y-3">
+              {spilloverCompleted.map((item) => (
+                <TodoItemCard
+                  key={item.id}
+                  item={item}
+                  onStatusCycle={cycleStatus}
+                  onDelete={deleteItem}
+                  onUpdate={updateItem}
+                  extendDeadline
+                  isSpillover
+                />
+              ))}
               {completed.map((item) => (
                 <TodoItemCard
                   key={item.id}

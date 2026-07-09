@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { groups, groupMembers, users, weeklyTodos, todoItems } from '@/lib/db/schema';
 import { getAuth } from '@/lib/auth';
 import { getWeekStart, maskPhone } from '@/lib/utils';
+import { getSpillovers } from '@/lib/spillovers';
 import { and, eq } from 'drizzle-orm';
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ code: string }> }) {
@@ -56,9 +57,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ code
           .orderBy(todoItems.createdAt);
       }
 
+      // Own current-week goals only — spillovers stay out of the progress math,
+      // same as the dashboard, so a carried-over task doesn't skew this week's ring.
       const totalItems = items.length;
       const doneItems = items.filter((i) => i.status === 'done').length;
       const progress = totalItems === 0 ? 0 : Math.round((doneItems / totalItems) * 100);
+
+      const spillovers = await getSpillovers(m.userId, weekStart);
 
       return {
         id: user.id,
@@ -69,13 +74,25 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ code
         doneItems,
         progress,
         hasStartedWeek: !!todo,
-        items: items.map((i) => ({
-          id: i.id,
-          title: i.title,
-          deadline: i.deadline,
-          status: i.status,
-          note: i.note,
-        })),
+        spilloverCount: spillovers.filter((i) => i.status !== 'done').length,
+        items: [
+          ...spillovers.map((i) => ({
+            id: i.id,
+            title: i.title,
+            deadline: i.deadline,
+            status: i.status,
+            note: i.note,
+            isSpillover: true,
+          })),
+          ...items.map((i) => ({
+            id: i.id,
+            title: i.title,
+            deadline: i.deadline,
+            status: i.status,
+            note: i.note,
+            isSpillover: false,
+          })),
+        ],
       };
     })
   );

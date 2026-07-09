@@ -11,6 +11,7 @@ interface GoalItem {
   deadline: string | null;
   status: string;
   note: string | null;
+  isSpillover?: boolean;
 }
 
 interface Member {
@@ -22,6 +23,7 @@ interface Member {
   doneItems: number;
   progress: number;
   hasStartedWeek: boolean;
+  spilloverCount: number;
   items: GoalItem[];
 }
 
@@ -71,6 +73,10 @@ function MemberCard({ member }: { member: Member }) {
           </p>
           {member.hasStartedWeek ? (
             <p className="text-xs text-gray-400 mt-0.5">{member.doneItems}/{member.totalItems} done</p>
+          ) : member.spilloverCount > 0 ? (
+            <p className="text-xs text-gray-400 mt-0.5">
+              {member.spilloverCount} carried over from last week
+            </p>
           ) : (
             <p className="text-xs text-gray-400 mt-0.5">Hasn&apos;t started this week</p>
           )}
@@ -92,7 +98,7 @@ function MemberCard({ member }: { member: Member }) {
       {/* Goals list */}
       {expanded && (
         <div className="border-t border-gray-50 px-4 pb-4 pt-2 space-y-2">
-          {!member.hasStartedWeek || member.items.length === 0 ? (
+          {member.items.length === 0 ? (
             <p className="text-xs text-gray-400 text-center py-3">No goals added yet</p>
           ) : (
             member.items.map((item) => (
@@ -111,6 +117,11 @@ function MemberCard({ member }: { member: Member }) {
                     {item.title}
                   </p>
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    {item.isSpillover && (
+                      <span className="text-xs px-1.5 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700">
+                        Spillover
+                      </span>
+                    )}
                     {item.deadline && (
                       <span className="text-xs text-gray-400">Due {formatDeadline(item.deadline)}</span>
                     )}
