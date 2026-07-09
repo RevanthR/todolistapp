@@ -186,7 +186,7 @@ export default function GroupPage() {
         </div>
       )}
 
-      <div className="space-y-3">
+      <div className="space-y-3 md:space-y-0 md:grid md:grid-cols-2 md:gap-3">
         {groups.map((group) => (
           <div key={group.id} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
             <div className="flex items-center justify-between mb-3">

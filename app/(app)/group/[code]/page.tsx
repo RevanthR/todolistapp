@@ -240,7 +240,7 @@ export default function GroupDetailPage() {
         Members ({members.length})
       </h2>
 
-      <div className="space-y-3">
+      <div className="space-y-3 md:space-y-0 md:grid md:grid-cols-2 md:gap-3 md:items-start">
         {members.map((member) => (
           <MemberCard key={member.id} member={member} />
         ))}

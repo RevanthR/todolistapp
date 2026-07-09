@@ -255,7 +255,7 @@ export default function Dashboard() {
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
             Pending · {pending.length + spilloverPending.length}
           </p>
-          <div className="space-y-3">
+          <div className="space-y-3 md:space-y-0 md:grid md:grid-cols-2 md:gap-3">
             {spilloverPending.map((item) => (
               <TodoItemCard
                 key={item.id}
@@ -359,7 +359,7 @@ export default function Dashboard() {
             </svg>
           </button>
           {showCompleted && (
-            <div className="space-y-3">
+            <div className="space-y-3 md:space-y-0 md:grid md:grid-cols-2 md:gap-3">
               {spilloverCompleted.map((item) => (
                 <TodoItemCard
                   key={item.id}
