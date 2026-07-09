@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import ProgressRing from '@/components/ProgressRing';
 import TodoItemCard, { TodoItemData } from '@/components/TodoItemCard';
 import DeadlinePicker from '@/components/DeadlinePicker';
-import { formatWeekRange, getWeekStart } from '@/lib/utils';
+import { formatWeekRange, getTodayStr, getWeekStart } from '@/lib/utils';
 
 interface WeeklyTodo {
   id: string;
@@ -47,6 +47,10 @@ export default function Dashboard() {
   const progress = items.length === 0 ? 0 : Math.round((completed.length / items.length) * 100);
   const spilloverPending = spillovers.filter((i) => i.status !== 'done');
   const spilloverCompleted = spillovers.filter((i) => i.status === 'done');
+  const today = getTodayStr();
+  const overdueCount = [...pending, ...spilloverPending].filter(
+    (i) => i.deadline && i.deadline < today
+  ).length;
 
   useEffect(() => {
     setLoading(true);
@@ -175,6 +179,24 @@ export default function Dashboard() {
           </svg>
         </button>
       </div>
+
+      {/* Extra stats — carried-over and overdue counts, only meaningful this week */}
+      {isCurrentWeek && (spilloverPending.length > 0 || overdueCount > 0) && (
+        <div className="flex gap-3 mb-5">
+          {spilloverPending.length > 0 && (
+            <div className="flex-1 bg-amber-50 border border-amber-200 rounded-2xl py-3 text-center">
+              <p className="text-lg font-semibold text-amber-700">{spilloverPending.length}</p>
+              <p className="text-xs text-amber-600">Carried over</p>
+            </div>
+          )}
+          {overdueCount > 0 && (
+            <div className="flex-1 bg-red-50 border border-red-200 rounded-2xl py-3 text-center">
+              <p className="text-lg font-semibold text-red-600">{overdueCount}</p>
+              <p className="text-xs text-red-500">Overdue</p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* No week started, and nothing carried over from last week */}
       {!todo && spillovers.length === 0 && (

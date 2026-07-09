@@ -72,7 +72,12 @@ function MemberCard({ member }: { member: Member }) {
             {member.isYou && <span className="ml-1 text-xs text-indigo-400 font-normal">(you)</span>}
           </p>
           {member.hasStartedWeek ? (
-            <p className="text-xs text-gray-400 mt-0.5">{member.doneItems}/{member.totalItems} done</p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {member.doneItems}/{member.totalItems} done
+              {member.spilloverCount > 0 && (
+                <span className="text-amber-600"> · {member.spilloverCount} carried over</span>
+              )}
+            </p>
           ) : member.spilloverCount > 0 ? (
             <p className="text-xs text-gray-400 mt-0.5">
               {member.spilloverCount} carried over from last week
